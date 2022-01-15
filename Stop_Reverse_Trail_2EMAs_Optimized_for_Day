@@ -1,0 +1,56 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © prashantrajpal94
+
+//@version=5
+strategy("Stop_Reverse_Trail_2EMAs", overlay=true, default_qty_value=100)
+// Make input options that configure backtest date range
+startDate = input(title="Start Date", defval=1)
+startMonth = input(title="Start Month", defval=12)
+startYear = input(title="Start Year", defval=2021)
+endDate = input(title="End Date",defval=31)
+endMonth = input(title="End Month", defval=12)
+endYear = input(title="End Year", defval=2021)
+small_ema = input(title="Last N candles for small ema", defval = 8)
+big_ema = input(title="Last N candles for big ema", defval = 20)
+stop_loss = input(title="Stop Loss", defval = 300)
+breakout_points = input(title="Breakout Points", defval = 100)
+
+stop_long = false
+stop_short = false
+
+inDateRange = (time >= timestamp(syminfo.timezone, startYear,
+         startMonth, startDate, 0, 0, 0)) and
+     (time <= timestamp(syminfo.timezone, endYear, endMonth, endDate, 23, 59, 0))
+
+plot(ta.ema(close, small_ema), color=color.new(color.green, 0), linewidth=2)
+plot(ta.ema(close, big_ema), color=color.new(color.red, 0), linewidth=2)
+
+// longCondition = ta.crossover(ta.ema(close, small_ema), ta.ema(close, big_ema))
+// if (longCondition) and inDateRange
+//     strategy.entry("Long", strategy.long)
+
+if close > ta.ema(close, small_ema) and (ta.ema(close, small_ema) > ta.ema(close, big_ema)) and inDateRange and ((math.abs(ta.ema(close, small_ema) - ta.ema(close[3], small_ema)) > breakout_points and math.abs(ta.ema(close, small_ema) - ta.ema(close, big_ema)) >= 100) or math.abs(ta.ema(close, small_ema) - ta.ema(close, big_ema)) > 200)
+    strategy.entry("Long", strategy.long)
+    stop_long := false
+
+// shortCondition = ta.crossunder(ta.ema(close, small_ema), ta.ema(close, big_ema))
+// if (shortCondition) and inDateRange
+//     strategy.entry("Short", strategy.short)
+
+if close < ta.ema(close, small_ema) and (ta.ema(close, small_ema) < ta.ema(close, big_ema)) and inDateRange and ((math.abs(ta.ema(close, small_ema) - ta.ema(close[3], small_ema)) > breakout_points and math.abs(ta.ema(close, small_ema) - ta.ema(close, big_ema)) >= 100) or math.abs(ta.ema(close, small_ema) - ta.ema(close, big_ema)) > 200)
+    strategy.entry("Short", strategy.short)
+    stop_short := false
+
+nPastDays = 3
+long_loss_price = math.max(ta.highest(nPastDays) - stop_loss, strategy.position_avg_price - stop_loss)
+short_loss_price = math.min(ta.lowest(nPastDays) + stop_loss, strategy.position_avg_price + stop_loss)
+
+if close <= long_loss_price
+    stop_long := true
+    strategy.exit("Long SL", "Long", stop = long_loss_price)
+// strategy.exit("Long SL", "Long", stop = long_loss_price)
+
+if close >= short_loss_price
+    stop_short := true
+    strategy.exit("Short SL", "Short", stop = short_loss_price)
+// strategy.exit("Short SL", "Short", stop = short_loss_price)
